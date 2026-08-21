@@ -158,6 +158,91 @@ loadGraph().then((g) => {
     addAdj(outAdj, edge.source, edge);
     addAdj(inAdj, edge.target, edge);
   });
+  function pairName(s) {
+    return String(s || "").replace(/\s+/g, " ").trim();
+  }
+  function lastOkForPair(srcName, tgtName) {
+    const map = window.DTP_LAST_OK || {};
+    return yyyymmdd(map[`${pairName(srcName)}|${pairName(tgtName)}`]);
+  }
+  function parseDtpEnds(node) {
+    const m = String((node && node.name) || "").match(/^(.+)>(.+):([A-Z])$/);
+    if (!m) return null;
+    return { src: pairName(m[1]), tgt: pairName(m[2]) };
+  }
+  function pairKeyFromIds(sourceId, targetId) {
+    const src = nodeById[sourceId];
+    const tgt = nodeById[targetId];
+    if (!src || !tgt) return "";
+    return `${pairName(src.name)}|${pairName(tgt.name)}`;
+  }
+  const neverDtpPairs = new Set();
+  const knownDtpPairs = new Set();
+  for (const n of g.nodes) {
+    if (n.type !== "dtp") continue;
+    const ends = parseDtpEnds(n);
+    if (!ends) continue;
+    const key = `${ends.src}|${ends.tgt}`;
+    knownDtpPairs.add(key);
+    if (!lastOkForPair(ends.src, ends.tgt)) neverDtpPairs.add(key);
+  }
+  function lastOkOnDtpPath(path, sourceId, targetId) {
+    const src = nodeById[sourceId];
+    const tgt = nodeById[targetId];
+    let last = lastOkForPair(src && src.name, tgt && tgt.name);
+    for (const id of path || []) {
+      const hop = nodeById[id];
+      if (!hop || hop.type !== "dtp") continue;
+      const ends = parseDtpEnds(hop);
+      const d = ends ? lastOkForPair(ends.src, ends.tgt) : yyyymmdd(hop.last_ok);
+      if (d && (!last || d > last)) last = d;
+    }
+    return last;
+  }
+  function pathHasDtp(path) {
+    return (path || []).some((id) => nodeById[id] && nodeById[id].type === "dtp");
+  }
+  function dtpNodeLastOk(node) {
+    if (!node || node.type !== "dtp") return "";
+    const ends = parseDtpEnds(node);
+    return ends ? lastOkForPair(ends.src, ends.tgt) : yyyymmdd(node.last_ok);
+  }
+  function isNeverDtp(node) {
+    return !!(node && node.type === "dtp" && !dtpNodeLastOk(node));
+  }
+  function isNeverLoadEdge(edge) {
+    if (!LOAD_EDGES.has(edge.type)) return false;
+    const src = nodeById[edge.source];
+    const tgt = nodeById[edge.target];
+    return isNeverDtp(src) || isNeverDtp(tgt);
+  }
+  function isNeverDtpPath(path, sourceId, targetId) {
+    const key = pairKeyFromIds(sourceId, targetId);
+    if (key && neverDtpPairs.has(key)) return true;
+    if (!pathHasDtp(path)) return false;
+    return !lastOkOnDtpPath(path, sourceId, targetId);
+  }
+  function isStaleDtpPath(path, sourceId, targetId) {
+    if (isNeverDtpPath(path, sourceId, targetId)) return false;
+    const last = lastOkOnDtpPath(path, sourceId, targetId);
+    if (last && last < LOAD_CUTOFF) return true;
+    const key = pairKeyFromIds(sourceId, targetId);
+    if (key && knownDtpPairs.has(key) && last && last < LOAD_CUTOFF) return true;
+    return false;
+  }
+  function isStaleLoadEdge(edge) {
+    if (!LOAD_EDGES.has(edge.type)) return false;
+    const src = nodeById[edge.source];
+    const tgt = nodeById[edge.target];
+    const dtp = src && src.type === "dtp" ? src : tgt && tgt.type === "dtp" ? tgt : null;
+    if (!dtp) return false;
+    const last = dtpNodeLastOk(dtp);
+    return !!last && last < LOAD_CUTOFF;
+  }
+  function skipNeverHop(edge, hideNeverDtp) {
+    if (!hideNeverDtp) return false;
+    return isNeverLoadEdge(edge) || isNeverDtp(nodeById[edge.source]) || isNeverDtp(nodeById[edge.target]);
+  }
 
   const types = [...new Set(g.nodes.map((n) => n.type))].sort();
   const prefixes = [...new Set(g.nodes.map((n) => n.prefix).filter(Boolean))].sort();
@@ -180,7 +265,9 @@ loadGraph().then((g) => {
     `<label class="chk">● ODSO / ADSO — цвет префикса, площадь ≈ GB</label>` +
     `<label class="chk">● светлый — virtual table (SDA)</label>` +
     `<label class="chk">→ обычная стрелка — прямая связь</label>` +
-    `<label class="chk">⇢ золотой пунктир — через скрытые объекты</label>`;
+    `<label class="chk">⇢ золотой пунктир — через скрытые объекты</label>` +
+    `<label class="chk">⇢ голубой прозрачный — stale, DTP когда-то грузился, давно</label>` +
+    `<label class="chk">⇢ серый прозрачный — never, DTP ни разу не грузился</label>`;
 
   const cy = cytoscape({
     container: document.getElementById("graph"),
@@ -229,7 +316,7 @@ loadGraph().then((g) => {
           "target-arrow-color": "#88949d",
           "target-arrow-shape": "triangle",
           "curve-style": "bezier",
-          "arrow-scale": 0.9,
+          "arrow-scale": 0.55,
           "opacity": 0.92
         }
       },
@@ -241,8 +328,48 @@ loadGraph().then((g) => {
           "target-arrow-color": "#c4a574",
           "line-style": "dashed",
           "line-dash-pattern": [8, 5],
-          "arrow-scale": 1.05,
+          "arrow-scale": 0.6,
           "z-index": 2
+        }
+      },
+      {
+        selector: "edge.stale",
+        style: {
+          "line-color": FROZEN_CYAN,
+          "target-arrow-color": FROZEN_CYAN,
+          "opacity": 0.32,
+          "z-index": 0
+        }
+      },
+      {
+        selector: "edge.via.stale",
+        style: {
+          "width": 1.15,
+          "line-color": FROZEN_CYAN,
+          "target-arrow-color": FROZEN_CYAN,
+          "opacity": 0.35,
+          "line-dash-pattern": [4, 8],
+          "z-index": 0
+        }
+      },
+      {
+        selector: "edge.never",
+        style: {
+          "line-color": "#8a969e",
+          "target-arrow-color": "#8a969e",
+          "opacity": 0.28,
+          "z-index": 0
+        }
+      },
+      {
+        selector: "edge.via.never",
+        style: {
+          "width": 1.1,
+          "line-color": "#8a969e",
+          "target-arrow-color": "#8a969e",
+          "opacity": 0.3,
+          "line-dash-pattern": [3, 9],
+          "z-index": 0
         }
       },
       { selector: ":selected", style: { "overlay-opacity": 0, "border-color": "#f0c870" } }
@@ -291,7 +418,7 @@ loadGraph().then((g) => {
     });
     return exact.length ? exact : loose;
   }
-  function traverse(seeds, maxDepth, parents, children, allowed, showFrozenLoads) {
+  function traverse(seeds, maxDepth, parents, children, allowed, showFrozenLoads, hideNeverDtp) {
     const keep = new Set(seeds);
     function walk(seed, direction) {
       const seen = new Set([seed]);
@@ -301,6 +428,7 @@ loadGraph().then((g) => {
         const edges = direction === "in" ? (inAdj.get(cur.id) || []) : (outAdj.get(cur.id) || []);
         for (const edge of edges) {
           if (!showFrozenLoads && loadsIntoFrozenData(nodeById[edge.source], nodeById[edge.target], edge.type)) continue;
+          if (skipNeverHop(edge, hideNeverDtp)) continue;
           const next = direction === "in" ? edge.source : edge.target;
           if (seen.has(next)) continue;
           seen.add(next);
@@ -324,7 +452,7 @@ loadGraph().then((g) => {
     });
     return keep;
   }
-  function collapsedVias(visible, showFrozenLoads) {
+  function collapsedVias(visible, showFrozenLoads, hideNeverDtp) {
     const found = [];
     const seen = new Set();
     function walk(start, direction) {
@@ -336,6 +464,7 @@ loadGraph().then((g) => {
         const edges = direction === "in" ? (inAdj.get(cur.id) || []) : (outAdj.get(cur.id) || []);
         for (const edge of edges) {
           if (!showFrozenLoads && loadsIntoFrozenData(nodeById[edge.source], nodeById[edge.target], edge.type)) continue;
+          if (skipNeverHop(edge, hideNeverDtp)) continue;
           const next = direction === "in" ? edge.source : edge.target;
           if (visited.has(next)) continue;
           const nextNode = nodeById[next];
@@ -344,16 +473,16 @@ loadGraph().then((g) => {
             const source = direction === "in" ? next : start;
             const target = direction === "in" ? start : next;
             const key = `${source}|${target}`;
+            const path = direction === "in" ? [next, ...cur.path] : [...cur.path, next];
+            if (isNeverDtpPath(path, source, target) && hideNeverDtp) continue;
             if (!seen.has(key)) {
               seen.add(key);
-              found.push({
-                source, target,
-                path: direction === "in" ? [next, ...cur.path] : [...cur.path, next]
-              });
+              found.push({ source, target, path });
             }
             continue;
           }
           if (!HIDDEN_HOPS.has(nextNode.type)) continue;
+          if (isNeverDtp(nextNode) && hideNeverDtp) continue;
           visited.add(next);
           queue.push({ id: next, hops: cur.hops + 1, path: direction === "in" ? [next, ...cur.path] : [...cur.path, next] });
         }
@@ -394,8 +523,11 @@ loadGraph().then((g) => {
       .slice(0, 28)
       .map((edge) => {
         const other = nodeById[edge.source === id ? edge.target : edge.source];
-        return `${edge.type || ""} ${edge.source === id ? "→" : "←"} ${neighborLabel(other)}`;
+        const line = `${edge.type || ""} ${edge.source === id ? "→" : "←"} ${neighborLabel(other)}`;
+        if (isNeverLoadEdge(edge)) return `<span class="never-ink">${line}</span>`;
+        return isStaleLoadEdge(edge) ? `<span class="stale-ink">${line}</span>` : line;
       });
+    detail.classList.remove("stale-ink", "never-ink");
     detail.innerHTML =
       `<p><b>${esc(n.name)}</b><br/><span class="meta">${n.type} · ${displayPrefix(n.prefix) || "—"} · ${n.cooling || ""}</span></p>` +
       (txt ? `<p class="txtlg">${esc(txt)}</p>` : `<p class="meta">наименование BW не найдено</p>`) +
@@ -431,6 +563,35 @@ loadGraph().then((g) => {
       };
     });
   }
+  function providerIdByName(name) {
+    const n = pairName(name);
+    for (const t of ["adso", "odso", "cube", "hcpr", "datasource"]) {
+      const id = `${t}:${n}`;
+      if (nodeById[id]) return id;
+    }
+    return "";
+  }
+  function allStaleDtpPairs() {
+    const seen = new Set();
+    const rows = [];
+    for (const n of g.nodes) {
+      if (n.type !== "dtp") continue;
+      const ends = parseDtpEnds(n);
+      if (!ends) continue;
+      const last = lastOkForPair(ends.src, ends.tgt);
+      if (!last || last >= LOAD_CUTOFF) continue;
+      const key = `${ends.src}|${ends.tgt}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      const sid = providerIdByName(ends.src);
+      const tid = providerIdByName(ends.tgt);
+      if (!sid || !tid) continue;
+      rows.push({ src: ends.src, tgt: ends.tgt, sid, tid, last: last || "" });
+    }
+    rows.sort((a, b) => String(a.last).localeCompare(String(b.last)) || a.src.localeCompare(b.src));
+    return rows;
+  }
+  const stalePairs = allStaleDtpPairs();
   function runLayout(fit) {
     if (!cy.elements().length) return;
     cy.layout({
@@ -454,9 +615,12 @@ loadGraph().then((g) => {
     const query = qEl.value.trim();
     const showFrozenLoads = document.getElementById("showFrozenLoads").checked;
     const showAllCv = document.getElementById("showAllCv").checked;
+    const hideLiveDtp = document.getElementById("hideLiveDtp").checked;
+    const hideNeverDtp = document.getElementById("hideNeverDtp").checked;
     const allowed = new Set(g.nodes
       .filter((n) => wanted(n, typeSet, prefix))
       .filter((n) => showAllCv || n.type !== "calcview" || cvHasConsumer(n.id))
+      .filter((n) => !hideNeverDtp || n.type !== "dtp" || !isNeverDtp(n))
       .map((n) => n.id));
     const focus = query ? new Set(matchSeeds(query, allowed)) : new Set();
     let visible = new Set(allowed);
@@ -464,14 +628,29 @@ loadGraph().then((g) => {
       const maxDepth = Number(document.getElementById("egoDepth").value || 2);
       const parents = document.getElementById("egoParents").checked;
       const children = document.getElementById("egoChildren").checked;
-      visible = traverse([...focus], maxDepth, parents, children, allowed, showFrozenLoads);
+      visible = traverse([...focus], maxDepth, parents, children, allowed, showFrozenLoads, hideNeverDtp);
       // This second intersection is deliberate: unchecked types can be traversal hops, never nodes.
       visible = new Set([...visible].filter((id) => allowed.has(id)));
     }
+    if (hideLiveDtp && !query) {
+      visible = new Set();
+      for (const row of stalePairs) {
+        if (allowed.has(row.sid)) visible.add(row.sid);
+        if (allowed.has(row.tid)) visible.add(row.tid);
+      }
+    }
     let edges = g.edges.filter((edge) =>
       visible.has(edge.source) && visible.has(edge.target) &&
-      (showFrozenLoads || !loadsIntoFrozenData(nodeById[edge.source], nodeById[edge.target], edge.type)));
-    let vias = collapsedVias(visible, showFrozenLoads);
+      (showFrozenLoads || !loadsIntoFrozenData(nodeById[edge.source], nodeById[edge.target], edge.type)) &&
+      (!hideNeverDtp || !isNeverLoadEdge(edge)));
+    let vias = collapsedVias(visible, showFrozenLoads, hideNeverDtp);
+    if (hideNeverDtp) {
+      vias = vias.filter((edge) => !isNeverDtpPath(edge.path, edge.source, edge.target));
+    }
+    if (hideLiveDtp) {
+      vias = vias.filter((edge) => isStaleDtpPath(edge.path, edge.source, edge.target));
+      edges = edges.filter((edge) => isStaleLoadEdge(edge));
+    }
     const isolated = pruneIsolates(visible, edges, vias, focus);
     edges = edges.filter((edge) => visible.has(edge.source) && visible.has(edge.target));
     vias = vias.filter((edge) => visible.has(edge.source) && visible.has(edge.target));
@@ -486,28 +665,36 @@ loadGraph().then((g) => {
       });
     });
     edges.forEach((edge) => elements.push({
-      group: "edges", data: { id: `edge:${edge.id}`, source: edge.source, target: edge.target, type: edge.type }
-    }));
-    vias.forEach((edge, index) => elements.push({
       group: "edges",
-      data: {
-        id: `via:${edge.source}:${edge.target}:${index}`, source: edge.source, target: edge.target,
-        viaPath: edge.path.map((id) => {
-          const node = nodeById[id];
-          if (!node) return id;
-          const txt = bwText(node);
-          return txt ? `${node.name} (${txt})` : node.name;
-        }).join(" → ")
-      },
-      classes: "via"
+      data: { id: `edge:${edge.id}`, source: edge.source, target: edge.target, type: edge.type },
+      classes: isNeverLoadEdge(edge) ? "never" : (isStaleLoadEdge(edge) ? "stale" : "")
     }));
+    vias.forEach((edge, index) => {
+      const lastOk = lastOkOnDtpPath(edge.path, edge.source, edge.target);
+      const never = isNeverDtpPath(edge.path, edge.source, edge.target);
+      const stale = !never && isStaleDtpPath(edge.path, edge.source, edge.target);
+      elements.push({
+        group: "edges",
+        data: {
+          id: `via:${edge.source}:${edge.target}:${index}`, source: edge.source, target: edge.target,
+          lastOk, stale: stale ? "stale" : "", never: never ? "never" : "",
+          viaPath: edge.path.map((id) => {
+            const node = nodeById[id];
+            if (!node) return id;
+            const txt = bwText(node);
+            return txt ? `${node.name} (${txt})` : node.name;
+          }).join(" → ")
+        },
+        classes: never ? "via never" : (stale ? "via stale" : "via")
+      });
+    });
     cy.elements().remove();
     cy.add(elements);
     runLayout(true);
     fillVisibleList(visible);
     const counts = (g.meta && g.meta.counts) || {};
     document.getElementById("hdrMeta").textContent =
-      `${visible.size} на экране · via ${vias.length}${isolated ? ` · скрыто изолир. ${isolated}` : ""} · всего ${counts.nodes || 0} узлов / ${counts.edges || 0} рёбер`;
+      `${visible.size} на экране · via ${vias.length} · stale ${vias.filter((v) => isStaleDtpPath(v.path, v.source, v.target)).length}${isolated ? ` · скрыто изолир. ${isolated}` : ""} · всего ${counts.nodes || 0} узлов / ${counts.edges || 0} рёбер`;
   }
 
   cy.on("tap", "node", (event) => showNode(event.target.id()));
@@ -519,16 +706,26 @@ loadGraph().then((g) => {
   }
   cy.on("dbltap", "node", focusNodeFromDoubleClick);
   cy.on("dblclick", "node", focusNodeFromDoubleClick);
-  cy.on("tap", "edge.via", (event) => {
+  cy.on("tap", "edge", (event) => {
     const edge = event.target;
-    document.getElementById("detailBody").innerHTML =
-      `<p><b>Связь через скрытые объекты</b></p><p class="meta">${String(edge.data("viaPath") || "").replace(/</g, "")}</p>`;
+    const stale = edge.hasClass("stale");
+    const never = edge.hasClass("never");
+    const detail = document.getElementById("detailBody");
+    detail.classList.toggle("stale-ink", stale);
+    detail.classList.toggle("never-ink", never && !stale);
+    const title = never ? "never — DTP ни разу не грузился" : (stale ? "stale — давно не грузился" : (edge.hasClass("via") ? "Связь через скрытые объекты" : "Ребро"));
+    const path = String(edge.data("viaPath") || edge.data("type") || "").replace(/</g, "");
+    detail.innerHTML =
+      `<p><b>${title}</b></p>` +
+      `<p class="meta">последний успешный DTP: ${fmtDate(edge.data("lastOk"))}</p>` +
+      (path ? `<p class="meta">${path}</p>` : "");
   });
   let timer = 0;
   types.forEach((type) => document.getElementById(`t_${type}`).addEventListener("change", rebuild));
   [prefSel, document.getElementById("egoDepth"), document.getElementById("egoParents"),
     document.getElementById("egoChildren"), document.getElementById("showFrozenLoads"),
-    document.getElementById("showAllCv")].forEach((el) => el.addEventListener("change", rebuild));
+    document.getElementById("showAllCv"), document.getElementById("hideLiveDtp"),
+    document.getElementById("hideNeverDtp")].forEach((el) => el.addEventListener("change", rebuild));
   qEl.addEventListener("input", () => {
     clearTimeout(timer);
     timer = setTimeout(rebuild, 220);

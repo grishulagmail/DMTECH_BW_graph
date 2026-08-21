@@ -39,7 +39,7 @@ function bwLookupKeys(name) {
   keys.push(
     n.replace(/^_SYS_BIC[:.]/i, "")
       .replace(/^SAPPBI\./i, "")
-      .replace(/^system-local\.bw\.bw2hana\//i, "")
+      .replace(/^system-local\.bw\.bw2hana[^/]*\//i, "")
       .replace(/^0BW:BIA:/i, "")
       .replace(/\.U1$/i, "")
   );
@@ -100,7 +100,52 @@ function loadGraph() {
     .catch(() => ({ meta: { counts: {} }, nodes: [], edges: [] }));
 }
 
+function collapseBw2hanaShadows(graph) {
+  const prefer = ["odso", "adso", "cube", "hcpr"];
+  const byId = Object.fromEntries((graph.nodes || []).map((n) => [n.id, n]));
+  const alias = new Map();
+  const isShadow = (s) => /system-local\.bw\.bw2hana/i.test(s) || /0BW:BIA:/i.test(s);
+  const canon = (name) => String(name || "")
+    .replace(/^_SYS_BIC[:.]/i, "")
+    .replace(/^SAPPBI\./i, "")
+    .replace(/^system-local\.bw\.bw2hana[^/]*\//i, "")
+    .replace(/^0BW:BIA:/i, "")
+    .replace(/\.U1$/i, "");
+  for (const n of graph.nodes || []) {
+    if (!isShadow(n.name) && !isShadow(n.id)) continue;
+    const c = canon(n.name);
+    if (!c) continue;
+    let target = null;
+    for (const t of prefer) {
+      const id = `${t}:${c}`;
+      if (byId[id] && id !== n.id) { target = id; break; }
+    }
+    if (!target) {
+      const same = `${n.type}:${c}`;
+      if (byId[same] && same !== n.id) target = same;
+    }
+    if (target) alias.set(n.id, target);
+  }
+  if (!alias.size) return graph;
+  graph.nodes = graph.nodes.filter((n) => !alias.has(n.id));
+  const seen = new Set();
+  graph.edges = (graph.edges || []).filter((e) => {
+    const s = alias.get(e.source) || e.source;
+    const t = alias.get(e.target) || e.target;
+    if (s === t) return false;
+    const nid = `${e.type}|${s}|${t}`;
+    if (seen.has(nid)) return false;
+    seen.add(nid);
+    e.source = s;
+    e.target = t;
+    e.id = nid;
+    return true;
+  });
+  return graph;
+}
+
 loadGraph().then((g) => {
+  collapseBw2hanaShadows(g);
   const nodeById = Object.fromEntries(g.nodes.map((n) => [n.id, n]));
   g.nodes.forEach((n) => { n.txtlg = n.txtlg || bwText(n); });
   const outAdj = new Map();
@@ -143,6 +188,7 @@ loadGraph().then((g) => {
     autoungrabify: false,
     minZoom: 0.05,
     maxZoom: 4,
+    wheelSensitivity: 0.35,
     style: [
       {
         selector: "node",
@@ -487,7 +533,25 @@ loadGraph().then((g) => {
     clearTimeout(timer);
     timer = setTimeout(rebuild, 220);
   });
-  document.getElementById("fitBtn").onclick = () => cy.fit(cy.elements(), 54);
-  document.getElementById("relayout").onclick = () => runLayout(true);
+  document.getElementById("fitBtn").onclick = () => { cy.resize(); cy.fit(cy.elements(), 54); };
+  document.getElementById("relayout").onclick = () => { cy.resize(); runLayout(true); };
+  let resizeFit;
+  const syncGraphSize = (fit) => {
+    cy.resize();
+    if (fit && cy.elements().length) cy.fit(cy.elements(), 54);
+  };
+  const wrap = document.getElementById("graphWrap");
+  if (typeof ResizeObserver !== "undefined" && wrap) {
+    new ResizeObserver(() => {
+      cy.resize();
+      clearTimeout(resizeFit);
+      resizeFit = setTimeout(() => syncGraphSize(true), 120);
+    }).observe(wrap);
+  }
+  window.addEventListener("resize", () => {
+    cy.resize();
+    clearTimeout(resizeFit);
+    resizeFit = setTimeout(() => syncGraphSize(true), 120);
+  });
   rebuild();
 });

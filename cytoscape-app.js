@@ -19,7 +19,7 @@ const LOAD_CUTOFF = "20251110";
 const DEFAULT_OFF = new Set([
   "infoobject", "calcview", "query", "workbook", "trfn", "dtp",
   "abap_routine", "clas", "hcpr", "table", "datasource", "trcs", "psa",
-  "cube", "ad", "iobja", "iobjt", "mpro"
+  "ad", "iobja", "iobjt", "mpro"
 ]);
 
 function yyyymmdd(v) {

@@ -72,6 +72,13 @@ function isColdProvider(n) {
   return n.cooling === "FROZEN" || n.cooling === "EMPTY" ||
     (yyyymmdd(n.last_data) && yyyymmdd(n.last_data) < LOAD_CUTOFF);
 }
+function isEmptyObject(n) {
+  if (!n || !STORAGE.has(n.type)) return false;
+  if (n.cooling === "EMPTY" || n.load_class === "EMPTY") return true;
+  const gb = Number(n.disk_gb);
+  if (Number.isFinite(gb)) return gb < 0.01;
+  return n.disk_gb == null || n.disk_gb === "";
+}
 function loadsIntoFrozenData(source, target, type) {
   if (!LOAD_EDGES.has(type) || isColdProvider(target)) return !!isColdProvider(target);
   const stale = yyyymmdd(source && source.props && source.props.last_load);
@@ -165,6 +172,17 @@ loadGraph().then((g) => {
     const map = window.DTP_LAST_OK || {};
     return yyyymmdd(map[`${pairName(srcName)}|${pairName(tgtName)}`]);
   }
+  function lastDataForPair(srcName, tgtName) {
+    const map = window.DTP_LAST_DATA || {};
+    return yyyymmdd(map[`${pairName(srcName)}|${pairName(tgtName)}`]);
+  }
+  function laterDate(a, b) {
+    if (a && b) return a >= b ? a : b;
+    return a || b || "";
+  }
+  function lastLiveForPair(srcName, tgtName) {
+    return laterDate(lastOkForPair(srcName, tgtName), lastDataForPair(srcName, tgtName));
+  }
   function parseDtpEnds(node) {
     const m = String((node && node.name) || "").match(/^(.+)>(.+):([A-Z])$/);
     if (!m) return null;
@@ -184,20 +202,25 @@ loadGraph().then((g) => {
     if (!ends) continue;
     const key = `${ends.src}|${ends.tgt}`;
     knownDtpPairs.add(key);
-    if (!lastOkForPair(ends.src, ends.tgt)) neverDtpPairs.add(key);
+    if (!lastLiveForPair(ends.src, ends.tgt)) neverDtpPairs.add(key);
   }
-  function lastOkOnDtpPath(path, sourceId, targetId) {
+  function lastLiveOnDtpPath(path, sourceId, targetId) {
     const src = nodeById[sourceId];
     const tgt = nodeById[targetId];
-    let last = lastOkForPair(src && src.name, tgt && tgt.name);
+    let last = lastLiveForPair(src && src.name, tgt && tgt.name);
     for (const id of path || []) {
       const hop = nodeById[id];
       if (!hop || hop.type !== "dtp") continue;
       const ends = parseDtpEnds(hop);
-      const d = ends ? lastOkForPair(ends.src, ends.tgt) : yyyymmdd(hop.last_ok);
+      const d = ends
+        ? lastLiveForPair(ends.src, ends.tgt)
+        : laterDate(yyyymmdd(hop.last_ok), yyyymmdd(hop.last_data));
       if (d && (!last || d > last)) last = d;
     }
     return last;
+  }
+  function lastOkOnDtpPath(path, sourceId, targetId) {
+    return lastLiveOnDtpPath(path, sourceId, targetId);
   }
   function pathHasDtp(path) {
     return (path || []).some((id) => nodeById[id] && nodeById[id].type === "dtp");
@@ -205,7 +228,9 @@ loadGraph().then((g) => {
   function dtpNodeLastOk(node) {
     if (!node || node.type !== "dtp") return "";
     const ends = parseDtpEnds(node);
-    return ends ? lastOkForPair(ends.src, ends.tgt) : yyyymmdd(node.last_ok);
+    return ends
+      ? lastLiveForPair(ends.src, ends.tgt)
+      : laterDate(yyyymmdd(node.last_ok), yyyymmdd(node.last_data));
   }
   function isNeverDtp(node) {
     return !!(node && node.type === "dtp" && !dtpNodeLastOk(node));
@@ -265,9 +290,10 @@ loadGraph().then((g) => {
     `<label class="chk">● ODSO / ADSO — цвет префикса, площадь ≈ GB</label>` +
     `<label class="chk">● светлый — virtual table (SDA)</label>` +
     `<label class="chk">→ обычная стрелка — прямая связь</label>` +
-    `<label class="chk">⇢ золотой пунктир — через скрытые объекты</label>` +
+    `<label class="chk">⇢ золотой пунктир — живая загрузка через скрытые объекты</label>` +
     `<label class="chk">⇢ голубой прозрачный — stale, DTP когда-то грузился, давно</label>` +
-    `<label class="chk">⇢ серый прозрачный — never, DTP ни разу не грузился</label>`;
+    `<label class="chk">⇢ серый прозрачный — never, DTP ни разу не грузился</label>` +
+    `<label class="chk">○ полупрозрачный узел — пустой объект (нет объёма)</label>`;
 
   const cy = cytoscape({
     container: document.getElementById("graph"),
@@ -306,6 +332,14 @@ loadGraph().then((g) => {
         style: {
           "border-color": "#38e8ff",
           "border-width": 3
+        }
+      },
+      {
+        selector: "node.empty",
+        style: {
+          "opacity": 0.32,
+          "border-width": 1,
+          "border-color": "#8a969e"
         }
       },
       {
@@ -529,8 +563,9 @@ loadGraph().then((g) => {
       });
     detail.classList.remove("stale-ink", "never-ink");
     detail.innerHTML =
-      `<p><b>${esc(n.name)}</b><br/><span class="meta">${n.type} · ${displayPrefix(n.prefix) || "—"} · ${n.cooling || ""}</span></p>` +
+      `<p><b>${esc(n.name)}</b><br/><span class="meta">${n.type} · ${displayPrefix(n.prefix) || "—"} · ${n.cooling || (isEmptyObject(n) ? "EMPTY" : "")}</span></p>` +
       (txt ? `<p class="txtlg">${esc(txt)}</p>` : `<p class="meta">наименование BW не найдено</p>`) +
+      (isEmptyObject(n) ? `<p class="meta">пустой объект — нет объёма данных</p>` : "") +
       (n.disk_gb != null ? `<p>${n.disk_gb} GB</p>` : "") +
       (n.last_ok || n.last_data ? `<p>последняя загрузка: ${fmtDate(n.last_ok)}<br/><span class="meta">данные до: ${fmtDate(n.last_data)}</span></p>` : "") +
       `<p class="meta">Рёбра:<br/>${lines.join("<br/>")}</p>`;
@@ -578,7 +613,7 @@ loadGraph().then((g) => {
       if (n.type !== "dtp") continue;
       const ends = parseDtpEnds(n);
       if (!ends) continue;
-      const last = lastOkForPair(ends.src, ends.tgt);
+      const last = lastLiveForPair(ends.src, ends.tgt);
       if (!last || last >= LOAD_CUTOFF) continue;
       const key = `${ends.src}|${ends.tgt}`;
       if (seen.has(key)) continue;
@@ -661,7 +696,7 @@ loadGraph().then((g) => {
       elements.push({
         group: "nodes",
         data: { id, label: n.label || n.name, color: nodeColor(n), size: nodeSize(n) },
-        classes: `${focus.has(id) ? "focus " : ""}${n.cooling === "FROZEN" ? "frozen" : ""}`
+        classes: `${focus.has(id) ? "focus " : ""}${n.cooling === "FROZEN" ? "frozen " : ""}${isEmptyObject(n) ? "empty" : ""}`.trim()
       });
     });
     edges.forEach((edge) => elements.push({
@@ -717,7 +752,7 @@ loadGraph().then((g) => {
     const path = String(edge.data("viaPath") || edge.data("type") || "").replace(/</g, "");
     detail.innerHTML =
       `<p><b>${title}</b></p>` +
-      `<p class="meta">последний успешный DTP: ${fmtDate(edge.data("lastOk"))}</p>` +
+      `<p class="meta">последняя живая DTP (строки или зелёный): ${fmtDate(edge.data("lastOk"))}</p>` +
       (path ? `<p class="meta">${path}</p>` : "");
   });
   let timer = 0;

@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>PBI lineage · Pixi</title>
+  <script type="module" crossorigin src="/DMTECH_BW_graph/pixi/assets/index-B2wnzfeS.js"></script>
+  <link rel="stylesheet" crossorigin href="/DMTECH_BW_graph/pixi/assets/index-Bu8za2Vu.css">
+</head>
+<body>
+  <header>
+    <h1>Lineage PBI · Pixi</h1>
+    <span class="badge">снимок</span>
+    <span class="badge" id="glBadge">GL…</span>
+    <span class="badge" id="fpsBadge">— fps</span>
+    <div class="meta" id="hdrMeta">загрузка…</div>
+    <button type="button" class="ghost" id="fitBtn">Вписать</button>
+    <button type="button" class="ghost" id="relayout">Layout</button>
+  </header>
+  <div class="layout">
+    <aside>
+      <h2>Поиск · пучок</h2>
+      <input type="search" id="q" placeholder="например ZBE_02" list="provNames" autocomplete="off" />
+      <datalist id="provNames"></datalist>
+      <label class="chk" style="margin:0 0 4px">глубина
+        <select id="egoDepth" style="width:auto;margin:0 0 0 8px;padding:4px 6px">
+          <option value="1">1 — только прямые</option>
+          <option value="2" selected>2 — пучок</option>
+          <option value="3">3 — шире</option>
+        </select>
+      </label>
+      <label class="chk">
+        <input type="checkbox" id="egoParents" checked />
+        родители — кто грузит в него
+      </label>
+      <label class="chk">
+        <input type="checkbox" id="egoChildren" checked />
+        потомки — куда он грузится
+      </label>
+      <h2>Префикс</h2>
+      <select id="prefix"><option value="">все</option></select>
+      <h2>Тип узла</h2>
+      <div id="types"></div>
+      <label class="chk" style="margin-top:10px">
+        <input type="checkbox" id="showFrozenLoads" checked />
+        показывать загрузки в FROZEN
+      </label>
+      <label class="chk">
+        <input type="checkbox" id="showAllCv" />
+        все CalcView (включая висящие)
+      </label>
+      <label class="chk">
+        <input type="checkbox" id="hideLiveDtp" />
+        только stale DTP — скрыть живые загрузки
+      </label>
+      <label class="chk">
+        <input type="checkbox" id="hideNeverDtp" />
+        скрыть DTP без загрузок (никогда)
+      </label>
+      <p class="warn">Чёрный холст. Рёбра — прямые и via, как в Cytoscape. Двойной клик по узлу строит пучок (родители + потомки) и вписывает его в кадр.</p>
+      <h2>Легенда · префикс</h2>
+      <div id="legend"></div>
+      <h2>Форма</h2>
+      <div id="legendShape"></div>
+    </aside>
+    <div id="graphWrap">
+      <div id="graph"></div>
+      <div id="boot">загрузка…</div>
+    </div>
+    <div id="detail">
+      <h2>Узел</h2>
+      <p class="meta">Кликните узел — справа наименование из BW.</p>
+      <div id="detailBody"></div>
+      <h2>На экране</h2>
+      <ul class="objlist" id="visibleList"></ul>
+    </div>
+  </div>
+</body>
+</html>

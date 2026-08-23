@@ -15,11 +15,12 @@
         <input type="text" id="q" placeholder="например ZBE_02" autocomplete="off" autocapitalize="off" spellcheck="false" role="combobox" aria-autocomplete="list" aria-controls="qSuggest" aria-expanded="false" />
         <ul id="qSuggest" class="search-suggest" role="listbox" hidden></ul>
       </div>
-      <label class="chk" style="margin:0 0 4px">глубина
-        <select id="egoDepth" style="width:auto;margin:0 0 0 8px;padding:4px 6px">
-          <option value="1">1 — только прямые</option>
-          <option value="2" selected>2 — пучок</option>
-          <option value="3">3 — шире</option>
+      <label class="chk ego-hop" style="margin:0 0 4px">уровень обхода
+        <select id="egoDepth" style="width:auto;margin:0 0 0 8px;padding:4px 6px" title="Число hop (рёбер) от выбранного узла при обходе lineage">
+          <option value="1">1</option>
+          <option value="2" selected>2</option>
+          <option value="3">3</option>
+          <option value="4">4</option>
         </select>
       </label>
       <label class="chk">

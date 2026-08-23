@@ -4,15 +4,17 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>PBI lineage · Pixi</title>
-  <script type="module" crossorigin src="/DMTECH_BW_graph/pixi/assets/index-K_j_XYie.js"></script>
-  <link rel="stylesheet" crossorigin href="/DMTECH_BW_graph/pixi/assets/index-CZCfYIVZ.css">
+  <script type="module" crossorigin src="/DMTECH_BW_graph/pixi/assets/index-Be_LLDYY.js"></script>
+  <link rel="stylesheet" crossorigin href="/DMTECH_BW_graph/pixi/assets/index-BjMkkplH.css">
 </head>
 <body>
   <div class="layout">
     <aside>
       <h2>Поиск · пучок</h2>
-      <input type="search" id="q" placeholder="например ZBE_02" list="provNames" autocomplete="off" />
-      <datalist id="provNames"></datalist>
+      <div class="search-wrap">
+        <input type="text" id="q" placeholder="например ZBE_02" autocomplete="off" autocapitalize="off" spellcheck="false" role="combobox" aria-autocomplete="list" aria-controls="qSuggest" aria-expanded="false" />
+        <ul id="qSuggest" class="search-suggest" role="listbox" hidden></ul>
+      </div>
       <label class="chk" style="margin:0 0 4px">глубина
         <select id="egoDepth" style="width:auto;margin:0 0 0 8px;padding:4px 6px">
           <option value="1">1 — только прямые</option>

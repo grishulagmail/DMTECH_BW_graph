@@ -4,8 +4,8 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>PBI lineage · Pixi</title>
-  <script type="module" crossorigin src="/DMTECH_BW_graph/pixi/assets/index-Be_LLDYY.js"></script>
-  <link rel="stylesheet" crossorigin href="/DMTECH_BW_graph/pixi/assets/index-BjMkkplH.css">
+  <script type="module" crossorigin src="/DMTECH_BW_graph/pixi/assets/index-DC31RUR4.js"></script>
+  <link rel="stylesheet" crossorigin href="/DMTECH_BW_graph/pixi/assets/index-izxo99eV.css">
 </head>
 <body>
   <div class="layout">
@@ -31,23 +31,26 @@
         потомки — куда он грузится
       </label>
       <h2>Тип узла</h2>
-      <div id="types"></div>
-      <label class="chk" style="margin-top:10px">
-        <input type="checkbox" id="showFrozenLoads" checked />
-        показывать загрузки в FROZEN
-      </label>
-      <label class="chk">
-        <input type="checkbox" id="showAllCv" />
-        все CalcView (включая висящие)
-      </label>
-      <label class="chk">
-        <input type="checkbox" id="hideLiveDtp" />
-        только stale DTP — скрыть живые загрузки
-      </label>
-      <label class="chk">
-        <input type="checkbox" id="hideNeverDtp" />
-        скрыть DTP без загрузок (никогда)
-      </label>
+      <div id="types" class="filter-group filter-group--types"></div>
+      <h2>Загрузки · DTP</h2>
+      <div class="filter-group filter-group--loads">
+        <label class="chk">
+          <input type="checkbox" id="showFrozenLoads" checked />
+          показывать загрузки в FROZEN
+        </label>
+        <label class="chk">
+          <input type="checkbox" id="showAllCv" />
+          все CalcView (включая висящие)
+        </label>
+        <label class="chk">
+          <input type="checkbox" id="hideLiveDtp" />
+          только stale DTP — скрыть живые загрузки
+        </label>
+        <label class="chk">
+          <input type="checkbox" id="hideNeverDtp" />
+          скрыть DTP без загрузок (никогда)
+        </label>
+      </div>
       <details class="fold">
         <summary>Легенда · префикс</summary>
         <div id="legend"></div>

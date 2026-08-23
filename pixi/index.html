@@ -4,8 +4,8 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>PBI lineage · Pixi</title>
-  <script type="module" crossorigin src="/DMTECH_BW_graph/pixi/assets/index-B2wnzfeS.js"></script>
-  <link rel="stylesheet" crossorigin href="/DMTECH_BW_graph/pixi/assets/index-Bu8za2Vu.css">
+  <script type="module" crossorigin src="/DMTECH_BW_graph/pixi/assets/index-DEfNQXCz.js"></script>
+  <link rel="stylesheet" crossorigin href="/DMTECH_BW_graph/pixi/assets/index-DE3hGxcZ.css">
 </head>
 <body>
   <header>
@@ -57,11 +57,14 @@
         <input type="checkbox" id="hideNeverDtp" />
         скрыть DTP без загрузок (никогда)
       </label>
-      <p class="warn">Чёрный холст. Рёбра — прямые и via, как в Cytoscape. Двойной клик по узлу строит пучок (родители + потомки) и вписывает его в кадр.</p>
-      <h2>Легенда · префикс</h2>
-      <div id="legend"></div>
-      <h2>Форма</h2>
-      <div id="legendShape"></div>
+      <details class="fold">
+        <summary>Легенда · префикс</summary>
+        <div id="legend"></div>
+      </details>
+      <details class="fold">
+        <summary>Форма</summary>
+        <div id="legendShape"></div>
+      </details>
     </aside>
     <div id="graphWrap">
       <div id="graph"></div>
@@ -69,10 +72,11 @@
     </div>
     <div id="detail">
       <h2>Узел</h2>
-      <p class="meta">Кликните узел — справа наименование из BW.</p>
       <div id="detailBody"></div>
-      <h2>На экране</h2>
-      <ul class="objlist" id="visibleList"></ul>
+      <details class="fold">
+        <summary>Узлы</summary>
+        <ul class="objlist" id="visibleList"></ul>
+      </details>
     </div>
   </div>
 </body>

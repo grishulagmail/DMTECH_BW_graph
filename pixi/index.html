@@ -4,8 +4,8 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>PBI lineage · Pixi</title>
-  <script type="module" crossorigin src="/DMTECH_BW_graph/pixi/assets/index-0i32saRL.js"></script>
-  <link rel="stylesheet" crossorigin href="/DMTECH_BW_graph/pixi/assets/index-O1EQvxlc.css">
+  <script type="module" crossorigin src="/DMTECH_BW_graph/pixi/assets/index-Jl_bgvCu.js"></script>
+  <link rel="stylesheet" crossorigin href="/DMTECH_BW_graph/pixi/assets/index-Dn0Nf4qw.css">
 </head>
 <body>
   <header>
@@ -69,14 +69,20 @@
     <div id="graphWrap">
       <div id="graph"></div>
       <div id="boot">загрузка…</div>
-    </div>
-    <div id="detail">
-      <h2>Узел</h2>
-      <div id="detailBody"></div>
-      <details class="fold">
-        <summary>Узлы</summary>
-        <ul class="objlist" id="visibleList"></ul>
-      </details>
+      <div class="float-panel" id="panelObject">
+        <div class="float-head">Объект</div>
+        <div class="float-body" id="detailBody"><p class="meta">клик по узлу или ребру</p></div>
+      </div>
+      <div class="float-panel" id="panelNodes">
+        <div class="float-head">Узлы</div>
+        <div class="float-body float-scroll">
+          <ul class="objlist" id="visibleList"></ul>
+        </div>
+      </div>
+      <div class="float-panel" id="panelEdges">
+        <div class="float-head">Рёбра</div>
+        <div class="float-body float-scroll" id="edgesBody"><p class="meta">выберите узел</p></div>
+      </div>
     </div>
   </div>
   <div id="nodeTip" role="tooltip"></div>

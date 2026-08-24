@@ -4,8 +4,8 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>PBI lineage · Pixi</title>
-  <script type="module" crossorigin src="/DMTECH_BW_graph/pixi/assets/index-Cogp0E7E.js"></script>
-  <link rel="stylesheet" crossorigin href="/DMTECH_BW_graph/pixi/assets/index-Bghb7zl0.css">
+  <script type="module" crossorigin src="/DMTECH_BW_graph/pixi/assets/index-DsFwTtHu.js"></script>
+  <link rel="stylesheet" crossorigin href="/DMTECH_BW_graph/pixi/assets/index-B1TRNQSy.css">
 </head>
 <body>
   <div class="layout">
@@ -31,8 +31,25 @@
         <input type="checkbox" id="egoChildren" checked />
         потомки — куда он грузится
       </label>
-      <h2>Тип узла</h2>
+      <div class="h2-row">
+        <h2>Тип узла</h2>
+        <button type="button" class="gear-btn" id="typeGear" title="Типы в списке и маски таблиц" aria-expanded="false" aria-controls="typeGearPop">⚙</button>
+      </div>
       <div id="types" class="filter-group filter-group--types"></div>
+      <div id="typeGearPop" class="gear-pop" hidden>
+        <p class="gear-pop__hint">В списке опций. Остальные типы скрыты, но работают со своими значениями по умолчанию.</p>
+        <div id="typeGearList"></div>
+        <div class="gear-masks">
+          <p class="gear-pop__hint">Таблицы при галке table. Маски по имени / префиксу / короткому имени: * любой текст, ? один символ.</p>
+          <label class="gear-mask">включать
+            <textarea id="tableInclude" rows="3" spellcheck="false" placeholder="/POSDW/*"></textarea>
+          </label>
+          <label class="gear-mask">исключать
+            <textarea id="tableExclude" rows="2" spellcheck="false" placeholder="*TVARVC*"></textarea>
+          </label>
+        </div>
+        <button type="button" class="ghost gear-pop__reset" id="typeGearReset">Сбросить типы и маски</button>
+      </div>
       <h2>Загрузки · DTP</h2>
       <div class="filter-group filter-group--loads">
         <label class="chk">

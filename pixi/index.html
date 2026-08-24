@@ -4,8 +4,8 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>PBI lineage · Pixi</title>
-  <script type="module" crossorigin src="/DMTECH_BW_graph/pixi/assets/index-DTSINAiw.js"></script>
-  <link rel="stylesheet" crossorigin href="/DMTECH_BW_graph/pixi/assets/index-lE2lgIL4.css">
+  <script type="module" crossorigin src="/DMTECH_BW_graph/pixi/assets/index-CD1lKxME.js"></script>
+  <link rel="stylesheet" crossorigin href="/DMTECH_BW_graph/pixi/assets/index-Bghb7zl0.css">
 </head>
 <body>
   <div class="layout">
@@ -75,6 +75,16 @@
         <nav class="graph-crumbs" id="graphCrumbs" aria-label="Навигация по графу" hidden></nav>
       </div>
       <div id="graph"></div>
+      <div id="volumePanel" class="volume-panel" hidden aria-label="Доля объёма подграфа">
+        <div class="volume-pie-wrap">
+          <div class="volume-pie" id="volumePie"></div>
+          <span class="volume-pct" id="volumePct">—</span>
+        </div>
+        <div class="volume-meta">
+          <div class="volume-title">Объём подграфа</div>
+          <div class="volume-detail" id="volumeDetail">—</div>
+        </div>
+      </div>
       <div id="boot">загрузка…</div>
       <button type="button" id="bootRetry" class="boot-retry" hidden>Повторить</button>
       <div class="float-panel" id="panelObject">

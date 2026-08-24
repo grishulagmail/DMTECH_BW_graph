@@ -2,7 +2,10 @@
 
 Версия: текущая реализация `pixi-viewer` (инкрементальный rebuild).
 
-URL: https://grishulagmail.github.io/DMTECH_BW_graph/pixi/
+URL (оба хоста, одна сборка):
+
+- https://grishulagmail.github.io/DMTECH_BW_graph/pixi/
+- http://v135892.hosted-by-vdsina.com/DMTECH_BW_graph/pixi/
 
 ---
 
@@ -142,8 +145,11 @@ layoutNodes(nodes, links, { fresh: frame.bundle.size > 0 })
 
 ## Деплой
 
+Публикация всегда на **оба** хоста одной сборкой. Не выкладывать только Pages. Подробности — `README.md` (раздел «Публикация»).
+
 ```powershell
 cd pixi-viewer
-npx vite build --base /DMTECH_BW_graph/pixi/
-# dist/ → grishulagmail/DMTECH_BW_graph/pixi/ → push main
+npm run build:pages
+# 1) dist/ → grishulagmail/DMTECH_BW_graph/pixi/ → push main
+# 2) тот же dist/ → VDS:/var/www/pixi/DMTECH_BW_graph/pixi/
 ```
